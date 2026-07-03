@@ -1,0 +1,111 @@
+# AEGIS Pro â€” Backend Setup Guide
+
+The AEGIS Pro app (`aegis-pro.html`) fully implements everything a browser can do on its own: streaming chat, multimodal upload, live web search with citations, focus modes, an artifacts panel, personas, local chat history, and voice mode.
+
+Four features are UI placeholders in that file because they require real, secret-holding infrastructure that can't live in a static frontend. This guide is the "real" version of each.
+
+---
+
+## 1. Real user accounts + database (Supabase)
+
+Supabase is the fastest path: Postgres + Auth + Row Level Security in one project.
+
+**Setup:**
+1. Create a project at supabase.com.
+2. In the SQL editor, create your chat history table:
+
+```sql
+create table chat_sessions (
+  id uuid primary key default gen_random_uuid(),
+  user_id uuid references auth.users(id) not null,
+  title text,
+  messages jsonb not null default '[]',
+  created_at timestamptz default now(),
+  updated_at timestamptz default now()
+);
+
+alter table chat_sessions enable row level security;
+
+-- Users can only ever see their own sessions
+create policy "select own sessions" on chat_sessions
+  for select using (auth.uid() = user_id);
+
+create policy "insert own sessions" on chat_sessions
+  for insert with check (auth.uid() = user_id);
+
+create policy "update own sessions" on chat_sessions
+  for update using (auth.uid() = user_id);
+
+create policy "delete own sessions" on chat_sessions
+  for delete using (auth.uid() = user_id);
+```
+
+That RLS block *is* the "secure user-specific data queries" requirement â€” Postgres enforces it at the database layer, so even a compromised frontend can't read another user's rows.
+
+3. Frontend auth (replace the demo modal in `aegis-pro.html`):
+
+```js
+import { createClient } from '@supabase/supabase-js'
+const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY)
+
+// Sign up
+await supabase.auth.signUp({ email, password })
+// Sign in
+await supabase.auth.signInWithPassword({ email, password })
+// Sign out
+await supabase.auth.signOut()
+
+// Save a session (RLS auto-scopes this to the logged-in user)
+await supabase.from('chat_sessions').upsert({ id: sessionId, user_id: user.id, title, messages })
+
+// Load history
+const { data } = await supabase.from('chat_sessions').select('*').order('updated_at', { ascending:false })
+```
+
+This needs a real build step (Vite/Next.js) since `import` from npm packages doesn't work in a single static HTML file â€” that's the main reason this isn't already wired into the artifact.
+
+---
+
+## 2. Google ecosystem (Gmail / Drive / Docs)
+
+This needs a **registered Google Cloud OAuth client** and a backend to exchange the auth code for tokens (the client secret can never touch the browser).
+
+**Setup:**
+1. Google Cloud Console â†’ create a project â†’ enable Gmail API, Drive API, Docs API.
+2. Create OAuth 2.0 credentials (Web application), add your domain to authorized redirect URIs.
+3. Backend token exchange (Node example):
+
+```js
+app.get('/oauth/callback', async (req, res) => {
+  const { tokens } = await oauth2Client.getToken(req.query.code)
+  // Store tokens.refresh_token against the logged-in user (encrypted, server-side)
+  res.redirect('/dashboard')
+})
+```
+
+4. Once you have a stored token, calling Gmail/Drive/Docs is a normal authenticated `fetch` from your backend, not the browser â€” the "Connect" buttons in the app should hit your backend's `/api/google/connect` route, not Google directly.
+
+---
+
+## 3. AI image generation
+
+Pick a provider and put the key **only** on a backend/serverless function:
+
+```js
+// /api/generate-image  (server-side â€” never expose this key in frontend JS)
+const resp = await fetch('https://api.openai.com/v1/images/generations', {
+  method: 'POST',
+  headers: { Authorization: `Bearer ${process.env.OPENAI_API_KEY}`, 'Content-Type': 'application/json' },
+  body: JSON.stringify({ model: 'dall-e-3', prompt, size: '1024x1024' })
+})
+```
+
+Then in `aegis-pro.html`, replace the `imgBtn` click handler's placeholder with a `fetch('/api/generate-image', {...})` call to your own backend, and render the returned image URL.
+
+---
+
+## 4. Why this couldn't just be "done" in the artifact
+
+A single HTML file in a chat artifact runs entirely client-side with no server, no npm packages, and no ability to hold secrets â€” any API key placed in its JavaScript would be visible to anyone who opens dev tools. Auth, databases with RLS, OAuth, and paid generation APIs all fundamentally require a secret-holding backend. The honest path is: prototype the UX in the artifact (done), then move to a real framework (Next.js + Supabase + a serverless API layer) for production, using this guide as the wiring diagram.
+
+If you want, I can scaffold that Next.js + Supabase project structure next.
