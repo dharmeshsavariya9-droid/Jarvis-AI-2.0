@@ -1,0 +1,700 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>AEGIS Pro — AI Assistant</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Rajdhani:wght@500;600;700&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+:root{
+  --void:#060a10; --panel:#0c131f; --panel2:#0f1826; --edge:#182131;
+  --cyan:#3ee6e0; --cyan-dim:#1c5c5c; --amber:#ff8a3d; --red:#ff5567;
+  --text:#dbe6ec; --mute:#5c7080; --mute2:#3c4a5c;
+}
+*{box-sizing:border-box;}
+html,body{margin:0;padding:0;height:100%;background:var(--void);color:var(--text);font-family:'IBM Plex Sans',sans-serif;}
+#app{display:flex; height:100vh; min-height:640px; overflow:hidden;}
+button{font-family:inherit;}
+::selection{background:rgba(62,230,224,.3);}
+::-webkit-scrollbar{width:6px; height:6px;}
+::-webkit-scrollbar-thumb{background:var(--edge); border-radius:3px;}
+
+/* ---------------- Sidebar ---------------- */
+#sidebar{width:260px; flex-shrink:0; background:var(--panel); border-right:1px solid var(--edge);
+  display:flex; flex-direction:column; padding:16px 12px; gap:14px;}
+.brand{font-family:'Rajdhani',sans-serif; font-weight:700; letter-spacing:.14em; font-size:16px; padding:0 6px;}
+.brand span{color:var(--cyan);}
+.newchat{background:rgba(62,230,224,.08); border:1px solid var(--cyan-dim); color:var(--cyan);
+  padding:9px 12px; border-radius:6px; font-size:12.5px; letter-spacing:.03em; cursor:pointer; text-align:left;}
+.newchat:hover{background:rgba(62,230,224,.14);}
+.sec-label{font-family:'IBM Plex Mono',monospace; font-size:10px; letter-spacing:.14em; color:var(--mute2);
+  text-transform:uppercase; padding:4px 6px 0;}
+#historyList{flex:1; overflow-y:auto; display:flex; flex-direction:column; gap:3px; min-height:60px;}
+.hist-item{padding:8px 9px; border-radius:5px; font-size:12.5px; color:var(--mute); cursor:pointer;
+  white-space:nowrap; overflow:hidden; text-overflow:ellipsis; display:flex; justify-content:space-between; gap:6px; align-items:center;}
+.hist-item:hover{background:var(--panel2); color:var(--text);}
+.hist-item.active{background:rgba(62,230,224,.08); color:var(--cyan);}
+.hist-item .del{opacity:0; font-size:11px; color:var(--mute2);}
+.hist-item:hover .del{opacity:1;}
+.hist-item .del:hover{color:var(--red);}
+#toolsList{display:flex; flex-direction:column; gap:4px; max-height:190px; overflow-y:auto;}
+.tool-item{padding:8px 9px; border-radius:5px; font-size:12px; color:var(--mute); cursor:pointer; display:flex; gap:8px; align-items:center;}
+.tool-item:hover{background:var(--panel2); color:var(--text);}
+.tool-item.active{background:rgba(255,138,61,.08); color:var(--amber);}
+.tool-item .em{font-size:15px;}
+#authbox{border-top:1px solid var(--edge); padding-top:12px; font-size:12.5px;}
+.acct-row{display:flex; align-items:center; gap:8px; padding:6px; border-radius:6px;}
+.avatar{width:26px; height:26px; border-radius:50%; background:linear-gradient(135deg,var(--cyan),var(--cyan-dim));
+  display:flex; align-items:center; justify-content:center; font-size:11px; font-weight:700; color:#04211f; flex-shrink:0;}
+.acct-name{flex:1; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;}
+.smallbtn{background:transparent; border:1px solid var(--edge); color:var(--mute); border-radius:4px; padding:4px 8px; font-size:10.5px; cursor:pointer;}
+.smallbtn:hover{color:var(--cyan); border-color:var(--cyan-dim);}
+.signinbtn{width:100%; background:var(--cyan); color:var(--void); border:none; padding:9px; border-radius:6px; font-size:12.5px; font-weight:600; cursor:pointer;}
+
+/* ---------------- Main column ---------------- */
+#main{flex:1; display:flex; flex-direction:column; min-width:0; position:relative;
+  background:radial-gradient(ellipse at 50% 0%, #0d1826 0%, var(--void) 60%);}
+#topbar{display:flex; align-items:center; justify-content:space-between; padding:12px 20px; border-bottom:1px solid var(--edge); flex-shrink:0; gap:12px; flex-wrap:wrap;}
+#focusRow{display:flex; gap:6px; flex-wrap:wrap;}
+.focus-pill{font-family:'IBM Plex Mono',monospace; font-size:10.5px; letter-spacing:.05em; padding:6px 11px; border-radius:14px;
+  border:1px solid var(--edge); color:var(--mute); cursor:pointer; background:transparent; display:flex; align-items:center; gap:5px;}
+.focus-pill:hover{border-color:var(--cyan-dim); color:var(--cyan);}
+.focus-pill.active{background:rgba(62,230,224,.1); border-color:var(--cyan); color:var(--cyan);}
+.deep-toggle{font-family:'IBM Plex Mono',monospace; font-size:10.5px; padding:6px 11px; border-radius:14px; border:1px solid var(--edge);
+  color:var(--mute); cursor:pointer; background:transparent;}
+.deep-toggle.active{background:rgba(255,138,61,.1); border-color:var(--amber); color:var(--amber);}
+#panelToggles{display:flex; gap:6px;}
+.ptbtn{background:transparent; border:1px solid var(--edge); color:var(--mute); padding:7px 10px; border-radius:6px; font-size:11px; cursor:pointer;}
+.ptbtn:hover, .ptbtn.active{color:var(--cyan); border-color:var(--cyan-dim);}
+
+#transcript{flex:1; overflow-y:auto; padding:20px 20px 8px; display:flex; flex-direction:column; gap:16px;}
+.msg{max-width:74%; animation:fadeUp .2s ease-out;}
+@keyframes fadeUp{from{opacity:0; transform:translateY(6px);} to{opacity:1; transform:translateY(0);}}
+.msg.user{align-self:flex-end;}
+.msg.ai{align-self:flex-start;}
+.bubble{font-size:13.8px; line-height:1.6; padding:11px 15px; border-radius:8px; white-space:pre-wrap;}
+.msg.user .bubble{background:rgba(62,230,224,.08); border:1px solid rgba(62,230,224,.25);}
+.msg.ai .bubble{background:var(--panel); border:1px solid var(--edge);}
+.msg.error .bubble{border-color:rgba(255,85,103,.4); color:#ffb3bd;}
+.tag{display:block; font-family:'IBM Plex Mono',monospace; font-size:9.5px; letter-spacing:.12em; text-transform:uppercase; margin-bottom:5px; color:var(--mute2);}
+.msg.user .tag{text-align:right; color:var(--cyan);}
+.msg .attach-thumb{max-width:180px; border-radius:6px; margin-top:6px; display:block; border:1px solid var(--edge);}
+.cursor-blink{display:inline-block; width:6px; height:13px; background:var(--cyan); margin-left:2px; animation:blink 1s infinite;}
+@keyframes blink{50%{opacity:0;}}
+
+.sources{margin-top:8px; display:flex; flex-direction:column; gap:6px;}
+.sources-label{font-family:'IBM Plex Mono',monospace; font-size:9.5px; letter-spacing:.1em; color:var(--mute2); text-transform:uppercase;}
+.source-card{display:block; background:var(--panel2); border:1px solid var(--edge); border-radius:6px; padding:8px 10px;
+  text-decoration:none; color:var(--text); font-size:12px; transition:.15s;}
+.source-card:hover{border-color:var(--cyan-dim);}
+.source-card .surl{color:var(--cyan); font-family:'IBM Plex Mono',monospace; font-size:10px; display:block; margin-bottom:2px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;}
+
+#composer{border-top:1px solid var(--edge); padding:12px 20px 16px; flex-shrink:0;}
+#attachPreview{display:flex; gap:8px; margin-bottom:8px; flex-wrap:wrap;}
+.att-chip{display:flex; align-items:center; gap:6px; background:var(--panel2); border:1px solid var(--edge); border-radius:6px; padding:5px 9px; font-size:11px; color:var(--mute);}
+.att-chip .x{cursor:pointer; color:var(--red);}
+#inputRow{display:flex; align-items:center; gap:8px;}
+.iconbtn{width:40px; height:40px; border-radius:8px; flex-shrink:0; cursor:pointer; background:var(--panel); border:1px solid var(--edge); color:var(--mute); display:flex; align-items:center; justify-content:center;}
+.iconbtn:hover{color:var(--cyan); border-color:var(--cyan-dim);}
+.iconbtn.active{color:var(--red); border-color:var(--red);}
+.iconbtn svg{width:17px; height:17px;}
+#textin{flex:1; background:var(--panel); border:1px solid var(--edge); border-radius:8px; color:var(--text); font-size:13.5px; padding:11px 14px; outline:none;}
+#textin:focus{border-color:var(--cyan-dim);}
+#sendbtn{width:40px; height:40px; border-radius:8px; background:var(--cyan); border:none; color:var(--void); cursor:pointer; display:flex; align-items:center; justify-content:center;}
+#sendbtn:disabled{background:var(--edge); color:var(--mute); cursor:default;}
+
+/* ---------------- Right panel ---------------- */
+#rightpanel{width:0; overflow:hidden; flex-shrink:0; background:var(--panel); border-left:1px solid var(--edge); transition:width .2s ease; display:flex; flex-direction:column;}
+#rightpanel.open{width:380px;}
+#rpTabs{display:flex; border-bottom:1px solid var(--edge); flex-shrink:0;}
+.rptab{flex:1; padding:11px 4px; text-align:center; font-size:11px; letter-spacing:.03em; color:var(--mute); cursor:pointer; border-bottom:2px solid transparent;}
+.rptab.active{color:var(--cyan); border-color:var(--cyan);}
+#rpBody{flex:1; overflow-y:auto; padding:16px;}
+.rp-section{display:none;}
+.rp-section.active{display:block;}
+.rp-title{font-family:'Rajdhani',sans-serif; font-weight:600; font-size:15px; margin-bottom:10px;}
+.codebox{background:var(--void); border:1px solid var(--edge); border-radius:6px; padding:12px; font-family:'IBM Plex Mono',monospace; font-size:11.5px; overflow-x:auto; white-space:pre; color:#a6f5f1;}
+.rp-empty{color:var(--mute2); font-size:12px; text-align:center; padding:40px 10px;}
+.gcard{display:flex; align-items:center; gap:10px; background:var(--panel2); border:1px solid var(--edge); border-radius:8px; padding:12px; margin-bottom:10px;}
+.gcard .gi{font-size:20px;}
+.gcard .gn{flex:1; font-size:13px;}
+.gcard .gd{font-size:10.5px; color:var(--mute2);}
+.connectbtn{background:transparent; border:1px solid var(--cyan-dim); color:var(--cyan); padding:6px 12px; border-radius:5px; font-size:11px; cursor:pointer;}
+.badge-soon{font-family:'IBM Plex Mono',monospace; font-size:9px; background:rgba(255,138,61,.12); color:var(--amber); padding:2px 6px; border-radius:3px; letter-spacing:.06em;}
+#ytInput, #imgPromptInput{width:100%; background:var(--void); border:1px solid var(--edge); border-radius:6px; color:var(--text); padding:9px 11px; font-size:12.5px; margin-bottom:8px;}
+.rp-btn{width:100%; background:var(--cyan); color:var(--void); border:none; padding:9px; border-radius:6px; font-size:12.5px; font-weight:600; cursor:pointer; margin-bottom:10px;}
+.rp-btn:disabled{background:var(--edge); color:var(--mute);}
+#htmlPreviewFrame{width:100%; height:220px; border:1px solid var(--edge); border-radius:6px; background:#fff; margin-top:10px;}
+
+/* ---------------- Voice overlay ---------------- */
+#voiceOverlay{position:fixed; inset:0; background:rgba(4,7,12,.94); backdrop-filter:blur(6px); z-index:50;
+  display:none; align-items:center; justify-content:center; flex-direction:column; gap:26px;}
+#voiceOverlay.show{display:flex;}
+#vOrb{width:180px; height:180px;}
+#voiceCaption{max-width:560px; text-align:center; font-size:16px; color:var(--text); min-height:24px; padding:0 20px;}
+#voiceState{font-family:'IBM Plex Mono',monospace; font-size:11px; letter-spacing:.14em; color:var(--mute); text-transform:uppercase;}
+#voiceClose{position:absolute; top:24px; right:28px; background:transparent; border:1px solid var(--edge); color:var(--mute); border-radius:50%; width:38px; height:38px; cursor:pointer;}
+
+/* ---------------- Auth modal ---------------- */
+#authModal{position:fixed; inset:0; background:rgba(4,7,12,.8); z-index:60; display:none; align-items:center; justify-content:center;}
+#authModal.show{display:flex;}
+.authcard{background:var(--panel); border:1px solid var(--edge); border-radius:10px; padding:26px; width:320px;}
+.authcard h3{margin:0 0 4px; font-family:'Rajdhani',sans-serif; font-size:18px;}
+.authcard p{color:var(--mute); font-size:11.5px; margin:0 0 16px;}
+.authcard input{width:100%; background:var(--void); border:1px solid var(--edge); color:var(--text); padding:9px 11px; border-radius:6px; font-size:13px; margin-bottom:10px;}
+.authcard .switchmode{color:var(--cyan); font-size:11.5px; cursor:pointer; text-align:center; margin-top:8px;}
+.authnote{font-size:10px; color:var(--mute2); margin-top:12px; line-height:1.5;}
+</style>
+</head>
+<body>
+<div id="app">
+
+  <!-- SIDEBAR -->
+  <div id="sidebar">
+    <div class="brand"><span>AEGIS</span> PRO</div>
+    <button class="newchat" id="newChatBtn">+ New session</button>
+
+    <div class="sec-label">Chat History</div>
+    <div id="historyList"></div>
+
+    <div class="sec-label">Tools & Personas</div>
+    <div id="toolsList"></div>
+
+    <div id="authbox"></div>
+  </div>
+
+  <!-- MAIN -->
+  <div id="main">
+    <div id="topbar">
+      <div id="focusRow">
+        <button class="focus-pill active" data-focus="web">🌐 Web</button>
+        <button class="focus-pill" data-focus="youtube">▶ YouTube</button>
+        <button class="focus-pill" data-focus="reddit">💬 Reddit</button>
+        <button class="focus-pill" data-focus="academic">🎓 Academic</button>
+        <button class="deep-toggle" id="deepToggle">🔎 Pro Discovery</button>
+      </div>
+      <div id="panelToggles">
+        <button class="ptbtn" data-panel="artifacts">Artifacts</button>
+        <button class="ptbtn" data-panel="youtube">YouTube</button>
+        <button class="ptbtn" data-panel="google">Google</button>
+        <button class="ptbtn" data-panel="image">Image Studio</button>
+      </div>
+    </div>
+
+    <div id="transcript"></div>
+
+    <div id="composer">
+      <div id="attachPreview"></div>
+      <div id="inputRow">
+        <button class="iconbtn" id="attachBtn" title="Attach image or document">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21.44 11.05l-9.19 9.19a6 6 0 01-8.49-8.49l9.19-9.19a4 4 0 015.66 5.66l-9.2 9.19a2 2 0 01-2.83-2.83l8.49-8.48"/></svg>
+        </button>
+        <input type="file" id="fileInput" accept="image/*,.pdf,.txt" multiple style="display:none">
+        <input id="textin" type="text" placeholder="Ask AEGIS anything… (try Pro Discovery for live research)" autocomplete="off">
+        <button class="iconbtn" id="micBtnInline" title="Voice input">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 1a3 3 0 00-3 3v8a3 3 0 006 0V4a3 3 0 00-3-3z"/><path d="M19 10v2a7 7 0 01-14 0v-2"/><line x1="12" y1="19" x2="12" y2="23"/><line x1="8" y1="23" x2="16" y2="23"/></svg>
+        </button>
+        <button class="iconbtn" id="advVoiceBtn" title="Advanced Voice Mode">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="3"/></svg>
+        </button>
+        <button id="sendbtn"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg></button>
+      </div>
+    </div>
+  </div>
+
+  <!-- RIGHT PANEL -->
+  <div id="rightpanel">
+    <div id="rpTabs">
+      <div class="rptab active" data-tab="artifacts">Artifacts</div>
+      <div class="rptab" data-tab="youtube">YouTube</div>
+      <div class="rptab" data-tab="google">Google</div>
+      <div class="rptab" data-tab="image">Image</div>
+    </div>
+    <div id="rpBody">
+      <div class="rp-section active" id="rp-artifacts">
+        <div class="rp-title">Artifact Preview</div>
+        <div id="artifactBody"><div class="rp-empty">Code blocks from AI replies will render here, side-by-side with chat.</div></div>
+      </div>
+      <div class="rp-section" id="rp-youtube">
+        <div class="rp-title">YouTube Summarizer</div>
+        <input id="ytInput" placeholder="Paste a YouTube video URL…">
+        <button class="rp-btn" id="ytBtn">Summarize</button>
+        <div id="ytResult"><div class="rp-empty">Based on public info about the video (title, description, discussion) — not a transcript.</div></div>
+      </div>
+      <div class="rp-section" id="rp-google">
+        <div class="rp-title">Google Ecosystem</div>
+        <div class="gcard"><div class="gi">📧</div><div><div class="gn">Gmail</div><div class="gd">Read & draft emails</div></div><button class="connectbtn">Connect</button></div>
+        <div class="gcard"><div class="gi">📁</div><div><div class="gn">Google Drive</div><div class="gd">Search & attach files</div></div><button class="connectbtn">Connect</button></div>
+        <div class="gcard"><div class="gi">📄</div><div><div class="gn">Google Docs</div><div class="gd">Read & edit documents</div></div><button class="connectbtn">Connect</button></div>
+        <div class="authnote">These require a registered Google OAuth client + backend token exchange — not something a static frontend can do securely. See the setup guide for the real integration steps.</div>
+      </div>
+      <div class="rp-section" id="rp-image">
+        <div class="rp-title">Image Studio <span class="badge-soon">NEEDS API KEY</span></div>
+        <input id="imgPromptInput" placeholder="Describe an image to generate…">
+        <button class="rp-btn" id="imgBtn">Generate</button>
+        <div id="imgResult"><div class="rp-empty">Image generation needs a DALL·E / Stable Diffusion API key on a backend proxy. Wire your key into the generate function — see the setup guide.</div></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- VOICE OVERLAY -->
+  <div id="voiceOverlay">
+    <button id="voiceClose">✕</button>
+    <svg id="vOrb" viewBox="0 0 200 200">
+      <defs>
+        <radialGradient id="vGrad" cx="50%" cy="50%" r="50%">
+          <stop offset="0%" stop-color="#3ee6e0" stop-opacity="0.9"/>
+          <stop offset="60%" stop-color="#3ee6e0" stop-opacity="0.2"/>
+          <stop offset="100%" stop-color="#3ee6e0" stop-opacity="0"/>
+        </radialGradient>
+      </defs>
+      <g transform="translate(100,100)">
+        <circle id="vRingOuter" r="92" fill="none" stroke="#1c5c5c" stroke-width="1.5" stroke-dasharray="2 6"/>
+        <circle id="vRingMid" r="72" fill="none" stroke="#3ee6e0" stroke-width="1.5" opacity=".55" stroke-dasharray="210 400"/>
+        <circle id="vGlow" r="34" fill="url(#vGrad)"/>
+      </g>
+    </svg>
+    <div id="voiceState">TAP TO SPEAK</div>
+    <div id="voiceCaption"></div>
+  </div>
+
+  <!-- AUTH MODAL -->
+  <div id="authModal">
+    <div class="authcard">
+      <h3 id="authTitle">Sign in</h3>
+      <p>Demo auth — stored only in this browser tab. Real account security needs a backend (see setup guide).</p>
+      <input id="authEmail" placeholder="Email" type="email">
+      <input id="authPass" placeholder="Password" type="password">
+      <button class="signinbtn" id="authSubmit">Sign in</button>
+      <div class="switchmode" id="authSwitch">Need an account? Sign up</div>
+    </div>
+  </div>
+
+</div>
+
+<script>
+(function(){
+  const $ = id => document.getElementById(id);
+  const transcriptEl = $('transcript');
+  const textin = $('textin');
+
+  /* ---------------- Personas / Tools marketplace ---------------- */
+  const PERSONAS = [
+    {id:'general', em:'🛡️', name:'AEGIS (General)', prompt:'You are AEGIS, a concise, capable, human-sounding personal AI assistant. Reply naturally and conversationally, never robotic, never markdown headers in short replies.'},
+    {id:'writer', em:'✍️', name:'Creative Writer', prompt:'You are a professional creative writing partner. Write vivid, natural prose, offer strong stylistic choices, and avoid cliché.'},
+    {id:'translator', em:'🌍', name:'Pro Translator', prompt:'You are a professional translator. Translate precisely and naturally, preserving tone and idiom, not literal word-for-word.'},
+    {id:'coder', em:'💻', name:'Code Assistant', prompt:'You are an expert software engineer. Give clean, correct, well-explained code with brief rationale.'},
+    {id:'researcher', em:'🔬', name:'Deep Researcher', prompt:'You are a meticulous research analyst. Ground claims in sources, note disagreements, and cite what you find.'},
+    {id:'tutor', em:'🎓', name:'Patient Tutor', prompt:'You are a patient, encouraging tutor. Explain step by step with simple language and check understanding.'}
+  ];
+  let activePersona = PERSONAS[0];
+
+  function renderTools(){
+    $('toolsList').innerHTML = PERSONAS.map(p =>
+      `<div class="tool-item ${p.id===activePersona.id?'active':''}" data-id="${p.id}"><span class="em">${p.em}</span>${p.name}</div>`
+    ).join('');
+    document.querySelectorAll('.tool-item').forEach(el=>{
+      el.addEventListener('click', ()=>{
+        activePersona = PERSONAS.find(p=>p.id===el.dataset.id);
+        renderTools();
+        addSystemNote(`Switched to ${activePersona.name}.`);
+      });
+    });
+  }
+  renderTools();
+
+  /* ---------------- State ---------------- */
+  let messages = [];        // {role, content} for API (content may be array for multimodal)
+  let sessionId = 'sess_' + Date.now();
+  let sessionTitle = null;
+  let pendingAttachments = []; // {type, media_type, data, name, previewUrl}
+  let activeFocus = 'web';
+  let deepDiscovery = false;
+  let currentUser = null;
+
+  /* ---------------- Persistent storage (per-Claude-session, personal) ---------------- */
+  async function saveSession(){
+    if(messages.length === 0) return;
+    if(!sessionTitle){
+      const firstUserMsg = messages.find(m=>m.role==='user');
+      sessionTitle = (typeof firstUserMsg?.content === 'string' ? firstUserMsg.content : 'Attachment') .slice(0,42) || 'New session';
+    }
+    try{
+      await window.storage.set('session:'+sessionId, JSON.stringify({id:sessionId, title:sessionTitle, messages, updatedAt:Date.now()}), false);
+      await renderHistory();
+    }catch(e){ console.warn('storage save failed', e); }
+  }
+  async function renderHistory(){
+    try{
+      const list = await window.storage.list('session:', false);
+      const items = [];
+      for(const key of (list?.keys||[])){
+        try{
+          const r = await window.storage.get(key, false);
+          if(r) items.push(JSON.parse(r.value));
+        }catch(e){}
+      }
+      items.sort((a,b)=>b.updatedAt-a.updatedAt);
+      $('historyList').innerHTML = items.map(it=>
+        `<div class="hist-item ${it.id===sessionId?'active':''}" data-id="${it.id}"><span>${(it.title||'Untitled').replace(/</g,'&lt;')}</span><span class="del" data-del="${it.id}">✕</span></div>`
+      ).join('') || '<div class="rp-empty" style="padding:10px 4px;">No saved sessions yet.</div>';
+      document.querySelectorAll('.hist-item').forEach(el=>{
+        el.addEventListener('click', (e)=>{ if(e.target.dataset.del) return; loadSession(el.dataset.id, items); });
+      });
+      document.querySelectorAll('[data-del]').forEach(el=>{
+        el.addEventListener('click', async (e)=>{ e.stopPropagation(); await window.storage.delete('session:'+el.dataset.del, false); renderHistory(); });
+      });
+    }catch(e){ console.warn('history load failed', e); }
+  }
+  function loadSession(id, items){
+    const found = items.find(i=>i.id===id);
+    if(!found) return;
+    sessionId = found.id; sessionTitle = found.title; messages = found.messages;
+    transcriptEl.innerHTML='';
+    messages.forEach(m=>renderStoredMsg(m));
+    renderHistory();
+  }
+  function renderStoredMsg(m){
+    const text = typeof m.content === 'string' ? m.content : (m.content.find(c=>c.type==='text')?.text || '[attachment]');
+    addMsg(m.role, text, {citations:m.citations});
+  }
+  $('newChatBtn').addEventListener('click', ()=>{
+    messages = []; sessionId = 'sess_' + Date.now(); sessionTitle = null;
+    transcriptEl.innerHTML=''; addSystemNote('New session started.'); renderHistory();
+  });
+
+  /* ---------------- Message rendering ---------------- */
+  function addMsg(role, text, opts){
+    opts = opts || {};
+    const wrap = document.createElement('div');
+    wrap.className = 'msg ' + (role==='user'?'user':'ai') + (opts.error?' error':'');
+    const tag = document.createElement('span'); tag.className='tag';
+    tag.textContent = role==='user' ? 'YOU' : (opts.error?'ERROR':activePersona.name.toUpperCase());
+    const bubble = document.createElement('div'); bubble.className='bubble'; bubble.textContent = text;
+    wrap.appendChild(tag); wrap.appendChild(bubble);
+    if(opts.attachments){
+      opts.attachments.forEach(a=>{
+        if(a.type==='image'){ const img=document.createElement('img'); img.className='attach-thumb'; img.src=a.previewUrl; wrap.appendChild(img); }
+        else{ const chip=document.createElement('div'); chip.className='tag'; chip.style.marginTop='6px'; chip.textContent='📎 '+a.name; wrap.appendChild(chip); }
+      });
+    }
+    if(opts.citations && opts.citations.length){
+      const src = document.createElement('div'); src.className='sources';
+      const lbl = document.createElement('div'); lbl.className='sources-label'; lbl.textContent='Sources';
+      src.appendChild(lbl);
+      const seen = new Set();
+      opts.citations.forEach(c=>{
+        if(!c.url || seen.has(c.url)) return; seen.add(c.url);
+        const a=document.createElement('a'); a.className='source-card'; a.href=c.url; a.target='_blank'; a.rel='noopener';
+        const u=document.createElement('span'); u.className='surl'; u.textContent=c.url;
+        a.appendChild(u); a.appendChild(document.createTextNode(c.title||c.url));
+        src.appendChild(a);
+      });
+      wrap.appendChild(src);
+    }
+    transcriptEl.appendChild(wrap);
+    transcriptEl.scrollTop = transcriptEl.scrollHeight;
+    return bubble;
+  }
+  function addSystemNote(text){ addMsg('ai', text); }
+
+  /* ---------------- Focus modes & Pro Discovery ---------------- */
+  document.querySelectorAll('.focus-pill').forEach(btn=>{
+    btn.addEventListener('click', ()=>{
+      document.querySelectorAll('.focus-pill').forEach(b=>b.classList.remove('active'));
+      btn.classList.add('active'); activeFocus = btn.dataset.focus;
+    });
+  });
+  $('deepToggle').addEventListener('click', ()=>{
+    deepDiscovery = !deepDiscovery;
+    $('deepToggle').classList.toggle('active', deepDiscovery);
+  });
+  const FOCUS_HINTS = {
+    web:'', youtube:'Prioritize results from youtube.com.', reddit:'Prioritize results from reddit.com discussions.',
+    academic:'Prioritize academic sources: arxiv.org, scholar.google.com, .edu domains, and peer-reviewed journals.'
+  };
+
+  /* ---------------- Attachments ---------------- */
+  $('attachBtn').addEventListener('click', ()=> $('fileInput').click());
+  $('fileInput').addEventListener('change', async (e)=>{
+    for(const file of e.target.files){
+      const b64 = await fileToBase64(file);
+      const item = {name:file.name, media_type:file.type||'application/octet-stream', data:b64};
+      if(file.type.startsWith('image/')){ item.type='image'; item.previewUrl = 'data:'+item.media_type+';base64,'+b64; }
+      else{ item.type='document'; }
+      pendingAttachments.push(item);
+    }
+    renderAttachPreview();
+    e.target.value='';
+  });
+  function fileToBase64(file){
+    return new Promise((res,rej)=>{
+      const r = new FileReader();
+      r.onload = ()=> res(r.result.split(',')[1]);
+      r.onerror = rej;
+      r.readAsDataURL(file);
+    });
+  }
+  function renderAttachPreview(){
+    $('attachPreview').innerHTML = pendingAttachments.map((a,i)=>
+      `<div class="att-chip">${a.type==='image'?'🖼️':'📄'} ${a.name.slice(0,20)} <span class="x" data-i="${i}">✕</span></div>`
+    ).join('');
+    document.querySelectorAll('.att-chip .x').forEach(x=>x.addEventListener('click', ()=>{
+      pendingAttachments.splice(+x.dataset.i,1); renderAttachPreview();
+    }));
+  }
+
+  /* ---------------- Sending / streaming ---------------- */
+  function buildUserContent(text){
+    if(pendingAttachments.length===0) return text;
+    const blocks = [];
+    if(text && text.trim()) blocks.push({type:'text', text});
+    pendingAttachments.forEach(a=>{
+      if(a.type==='image') blocks.push({type:'image', source:{type:'base64', media_type:a.media_type, data:a.data}});
+      else blocks.push({type:'document', source:{type:'base64', media_type: a.media_type==='application/pdf'?'application/pdf':'text/plain', data:a.data}});
+    });
+    return blocks;
+  }
+
+  async function handleSend(){
+    const text = textin.value.trim();
+    if(!text && pendingAttachments.length===0) return;
+    const attachmentsForUI = pendingAttachments.map(a=>({type:a.type, previewUrl:a.previewUrl, name:a.name}));
+    addMsg('user', text || '[attachment]', {attachments:attachmentsForUI});
+    const content = buildUserContent(text);
+    messages.push({role:'user', content});
+    textin.value=''; pendingAttachments=[]; renderAttachPreview();
+    await callAI();
+  }
+  $('sendbtn').addEventListener('click', handleSend);
+  textin.addEventListener('keydown', e=>{ if(e.key==='Enter') handleSend(); });
+
+  function systemPromptFor(){
+    let sp = activePersona.prompt + ' Keep responses natural, fluent, and human — vary sentence rhythm, avoid stock filler phrases and robotic hedging.';
+    if(deepDiscovery) sp += ' You have web search available. Use it for anything time-sensitive or fact-based, and ground claims in what you find. ' + (FOCUS_HINTS[activeFocus]||'');
+    return sp;
+  }
+
+  async function callAI(){
+    const useTools = deepDiscovery;
+    const hasMultimodal = messages.some(m=>Array.isArray(m.content));
+    const bubble = addMsg('ai', '');
+    bubble.innerHTML = '<span class="cursor-blink"></span>';
+
+    try{
+      if(!useTools && !hasMultimodal){
+        // streaming path for plain text conversations
+        await streamText(bubble);
+      } else {
+        // non-streaming path (tools / multimodal): render once complete
+        const resp = await fetch('https://api.anthropic.com/v1/messages', {
+          method:'POST', headers:{'Content-Type':'application/json'},
+          body: JSON.stringify({
+            model:'claude-sonnet-4-6', max_tokens:1024,
+            system: systemPromptFor(),
+            messages,
+            tools: useTools ? [{type:'web_search_20250305', name:'web_search'}] : undefined
+          })
+        });
+        const data = await resp.json();
+        const textBlocks = (data.content||[]).filter(b=>b.type==='text');
+        const fullText = textBlocks.map(b=>b.text).join('\n').trim() || '(no response)';
+        const citations = [];
+        textBlocks.forEach(b=>{ (b.citations||[]).forEach(c=> citations.push({url:c.url, title:c.title})); });
+        bubble.textContent = fullText;
+        if(citations.length){
+          const wrap = bubble.parentElement;
+          const src = document.createElement('div'); src.className='sources';
+          const lbl = document.createElement('div'); lbl.className='sources-label'; lbl.textContent='Sources'; src.appendChild(lbl);
+          const seen = new Set();
+          citations.forEach(c=>{ if(!c.url||seen.has(c.url))return; seen.add(c.url);
+            const a=document.createElement('a'); a.className='source-card'; a.href=c.url; a.target='_blank'; a.rel='noopener';
+            const u=document.createElement('span'); u.className='surl'; u.textContent=c.url;
+            a.appendChild(u); a.appendChild(document.createTextNode(c.title||c.url)); src.appendChild(a);
+          });
+          wrap.appendChild(src);
+        }
+        messages.push({role:'assistant', content: fullText});
+        detectArtifact(fullText);
+        maybeSpeak(fullText);
+      }
+    }catch(err){
+      console.error(err);
+      bubble.parentElement.classList.add('error');
+      bubble.textContent = 'Connection to core intelligence failed. Check your network and try again.';
+    }
+    saveSession();
+  }
+
+  async function streamText(bubble){
+    const resp = await fetch('https://api.anthropic.com/v1/messages', {
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({ model:'claude-sonnet-4-6', max_tokens:1024, system: systemPromptFor(), messages, stream:true })
+    });
+    const reader = resp.body.getReader();
+    const decoder = new TextDecoder();
+    let full = '';
+    let buf = '';
+    while(true){
+      const {done, value} = await reader.read();
+      if(done) break;
+      buf += decoder.decode(value, {stream:true});
+      const lines = buf.split('\n');
+      buf = lines.pop();
+      for(const line of lines){
+        if(!line.startsWith('data:')) continue;
+        const payload = line.slice(5).trim();
+        if(!payload || payload==='[DONE]') continue;
+        try{
+          const evt = JSON.parse(payload);
+          if(evt.type === 'content_block_delta' && evt.delta && evt.delta.type === 'text_delta'){
+            full += evt.delta.text;
+            bubble.textContent = full;
+            transcriptEl.scrollTop = transcriptEl.scrollHeight;
+          }
+        }catch(e){ /* ignore partial json */ }
+      }
+    }
+    bubble.textContent = full || '(no response)';
+    messages.push({role:'assistant', content: full});
+    detectArtifact(full);
+    maybeSpeak(full);
+  }
+
+  /* ---------------- Artifacts panel ---------------- */
+  function detectArtifact(text){
+    const m = text.match(/```(\w+)?\n([\s\S]*?)```/);
+    if(!m) return;
+    const lang = (m[1]||'text').toLowerCase();
+    const code = m[2];
+    $('artifactBody').innerHTML = `<div class="tag" style="margin-bottom:8px;">${lang}</div><div class="codebox"></div>`;
+    $('artifactBody').querySelector('.codebox').textContent = code;
+    if(lang==='html'){
+      const frame = document.createElement('iframe');
+      frame.id='htmlPreviewFrame'; frame.srcdoc = code;
+      $('artifactBody').appendChild(frame);
+    }
+    openPanel('artifacts');
+  }
+
+  /* ---------------- Right panel tabs ---------------- */
+  function openPanel(name){
+    $('rightpanel').classList.add('open');
+    document.querySelectorAll('.rptab').forEach(t=>t.classList.toggle('active', t.dataset.tab===name));
+    document.querySelectorAll('.rp-section').forEach(s=>s.classList.toggle('active', s.id==='rp-'+name));
+    document.querySelectorAll('.ptbtn').forEach(b=>b.classList.toggle('active', b.dataset.panel===name));
+  }
+  document.querySelectorAll('.ptbtn').forEach(b=>{
+    b.addEventListener('click', ()=>{
+      if($('rightpanel').classList.contains('open') && b.classList.contains('active')){
+        $('rightpanel').classList.remove('open'); b.classList.remove('active'); return;
+      }
+      openPanel(b.dataset.panel);
+    });
+  });
+  document.querySelectorAll('.rptab').forEach(t=> t.addEventListener('click', ()=>openPanel(t.dataset.tab)));
+
+  /* ---------------- YouTube summarizer ---------------- */
+  $('ytBtn').addEventListener('click', async ()=>{
+    const url = $('ytInput').value.trim();
+    if(!url) return;
+    $('ytResult').innerHTML = '<div class="rp-empty">Searching for information about this video…</div>';
+    try{
+      const resp = await fetch('https://api.anthropic.com/v1/messages', {
+        method:'POST', headers:{'Content-Type':'application/json'},
+        body: JSON.stringify({
+          model:'claude-sonnet-4-6', max_tokens:500,
+          system:'You summarize YouTube videos based on public web information (title, description, comments, articles about it) since you cannot watch the video directly. Be upfront that this is not a transcript-based summary.',
+          messages:[{role:'user', content:'Find information about this YouTube video and summarize its likely key points: '+url}],
+          tools:[{type:'web_search_20250305', name:'web_search'}]
+        })
+      });
+      const data = await resp.json();
+      const text = (data.content||[]).filter(b=>b.type==='text').map(b=>b.text).join('\n').trim() || 'No information found.';
+      $('ytResult').innerHTML = `<div class="bubble" style="background:var(--panel2); border:1px solid var(--edge); border-radius:6px; padding:10px; font-size:12.5px;">${text.replace(/</g,'&lt;')}</div>`;
+    }catch(e){ $('ytResult').innerHTML = '<div class="rp-empty">Lookup failed — check your connection.</div>'; }
+  });
+
+  /* ---------------- Image studio (placeholder) ---------------- */
+  $('imgBtn').addEventListener('click', ()=>{
+    const p = $('imgPromptInput').value.trim();
+    if(!p) return;
+    $('imgResult').innerHTML = `<div class="rp-empty">No image API key is connected, so "${p.replace(/</g,'&lt;')}" can't be rendered yet.<br><br>Wire a DALL·E / Stable Diffusion / Gemini Image key into a backend proxy, then call it from the <code>generateImage()</code> stub in this file (see setup guide).</div>`;
+  });
+
+  /* ---------------- Inline voice (press mic, one utterance) ---------------- */
+  const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+  let recognizer = null;
+  if(SR){
+    recognizer = new SR(); recognizer.continuous=false; recognizer.interimResults=false; recognizer.lang='en-US';
+    recognizer.onstart = ()=> $('micBtnInline').classList.add('active');
+    recognizer.onend = ()=> $('micBtnInline').classList.remove('active');
+    recognizer.onresult = (e)=>{ textin.value = e.results[0][0].transcript; handleSend(); };
+    $('micBtnInline').addEventListener('click', ()=>{ try{ recognizer.start(); }catch(e){} });
+  } else { $('micBtnInline').style.opacity='0.35'; }
+
+  let voiceEnabled = true;
+  function maybeSpeak(text){
+    if(!voiceEnabled || !('speechSynthesis' in window)) return;
+    if(!$('voiceOverlay').classList.contains('show')) return; // only auto-speak inside advanced voice mode
+    window.speechSynthesis.cancel();
+    const u = new SpeechSynthesisUtterance(text);
+    u.rate=1.02; u.pitch=0.92;
+    u.onstart = ()=> $('voiceState').textContent='SPEAKING';
+    u.onend = ()=> $('voiceState').textContent='TAP TO SPEAK';
+    window.speechSynthesis.speak(u);
+  }
+
+  /* ---------------- Advanced voice mode overlay ---------------- */
+  $('advVoiceBtn').addEventListener('click', ()=> $('voiceOverlay').classList.add('show'));
+  $('voiceClose').addEventListener('click', ()=>{ $('voiceOverlay').classList.remove('show'); window.speechSynthesis && window.speechSynthesis.cancel(); });
+  $('voiceOverlay').addEventListener('click', (e)=>{
+    if(e.target.id!=='voiceOverlay' && e.target.id!=='vOrb') return;
+    if(!recognizer){ $('voiceCaption').textContent='Voice input needs Chrome or Edge.'; return; }
+    $('voiceState').textContent='LISTENING';
+    try{ recognizer.start(); }catch(err){}
+  });
+  if(recognizer){
+    recognizer.addEventListener('result', (e)=>{
+      const t = e.results[0][0].transcript;
+      $('voiceCaption').textContent = t;
+    });
+  }
+
+  /* ---------------- Auth (demo only — see disclaimer) ---------------- */
+  $('authbox').innerHTML = `<button class="signinbtn" id="openAuth">Sign in</button>`;
+  let authMode = 'signin';
+  function renderAuthBox(){
+    if(currentUser){
+      $('authbox').innerHTML = `<div class="acct-row"><div class="avatar">${currentUser[0].toUpperCase()}</div><div class="acct-name">${currentUser}</div><button class="smallbtn" id="signOutBtn">Out</button></div>`;
+      $('signOutBtn').addEventListener('click', ()=>{ currentUser=null; renderAuthBox(); });
+    } else {
+      $('authbox').innerHTML = `<button class="signinbtn" id="openAuth">Sign in</button>`;
+      $('openAuth').addEventListener('click', ()=> $('authModal').classList.add('show'));
+    }
+  }
+  renderAuthBox();
+  document.addEventListener('click', (e)=>{ if(e.target.id==='openAuth') $('authModal').classList.add('show'); });
+  $('authSwitch').addEventListener('click', ()=>{
+    authMode = authMode==='signin' ? 'signup' : 'signin';
+    $('authTitle').textContent = authMode==='signin' ? 'Sign in' : 'Create account';
+    $('authSubmit').textContent = authMode==='signin' ? 'Sign in' : 'Sign up';
+    $('authSwitch').textContent = authMode==='signin' ? 'Need an account? Sign up' : 'Have an account? Sign in';
+  });
+  $('authSubmit').addEventListener('click', ()=>{
+    const email = $('authEmail').value.trim();
+    if(!email){ return; }
+    currentUser = email;
+    $('authModal').classList.remove('show');
+    $('authEmail').value=''; $('authPass').value='';
+    renderAuthBox();
+    addSystemNote(`Signed in as ${email} (demo session only — not a real account).`);
+  });
+
+  /* ---------------- Boot ---------------- */
+  renderHistory();
+  addSystemNote("AEGIS Pro online. Toggle Pro Discovery for live, cited web research, attach files for multimodal analysis, or open Advanced Voice Mode.");
+})();
+</script>
+</body>
+</html>
